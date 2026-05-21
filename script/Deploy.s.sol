@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {TimelockController} from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
 import {ForecastGovernor} from "../src/ForecastGovernor.sol";
 import {GovernanceToken} from "../src/GovernanceToken.sol";
@@ -8,6 +9,8 @@ import {OracleAdapter} from "../src/OracleAdapter.sol";
 import {OutcomeToken} from "../src/OutcomeToken.sol";
 import {PredictionMarketFactory} from "../src/PredictionMarketFactory.sol";
 import {TreasuryVault} from "../src/TreasuryVault.sol";
+import {TreasuryVaultUpgradeableV1} from "../src/TreasuryVaultUpgradeableV1.sol";
+import {TreasuryVaultUpgradeableV2} from "../src/TreasuryVaultUpgradeableV2.sol";
 
 contract DeployScaffold {
     uint256 public constant INITIAL_GOVERNANCE_SUPPLY = 1_000_000 ether;
@@ -48,5 +51,22 @@ contract DeployScaffold {
         treasuryVault = new TreasuryVault(owner);
         treasuryVault.transferOwnership(address(timelock));
         factory = new PredictionMarketFactory(owner, address(treasuryVault), address(outcomeToken));
+    }
+
+    function deployUpgradeableTreasury(
+        address owner
+    )
+        external
+        returns (
+            TreasuryVaultUpgradeableV1 implementationV1,
+            TreasuryVaultUpgradeableV2 implementationV2,
+            ERC1967Proxy proxy
+        )
+    {
+        implementationV1 = new TreasuryVaultUpgradeableV1();
+        implementationV2 = new TreasuryVaultUpgradeableV2();
+
+        bytes memory initData = abi.encodeCall(TreasuryVaultUpgradeableV1.initialize, (owner));
+        proxy = new ERC1967Proxy(address(implementationV1), initData);
     }
 }

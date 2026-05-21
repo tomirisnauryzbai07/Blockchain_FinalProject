@@ -1,43 +1,72 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {AggregatorV3Interface} from "./interfaces/AggregatorV3Interface.sol";
 import {IOracleAdapter} from "./interfaces/IOracleAdapter.sol";
 
-contract OracleAdapter is IOracleAdapter {
-    struct AnswerData {
-        int256 answer;
-        uint256 updatedAt;
+contract OracleAdapter is IOracleAdapter, Ownable {
+    struct BinaryMarketOracleConfig {
+        address feed;
+        int256 threshold;
+        bool outcomeIfGreaterOrEqual;
+        bool isConfigured;
     }
 
-    address public owner;
     uint256 public immutable STALE_AFTER;
-    mapping(bytes32 questionId => AnswerData) internal answers;
 
-    event AnswerSet(bytes32 indexed questionId, int256 answer, uint256 updatedAt);
+    mapping(bytes32 questionId => BinaryMarketOracleConfig config) internal configs;
 
-    modifier onlyOwner() {
-        _onlyOwner();
-        _;
-    }
+    event OracleConfigSet(
+        bytes32 indexed questionId,
+        address indexed feed,
+        int256 threshold,
+        bool outcomeIfGreaterOrEqual
+    );
 
-    function _onlyOwner() internal view {
-        require(msg.sender == owner, "NOT_OWNER");
-    }
-
-    constructor(address initialOwner, uint256 staleAfterSeconds) {
-        owner = initialOwner;
+    constructor(address initialOwner, uint256 staleAfterSeconds) Ownable(initialOwner) {
         STALE_AFTER = staleAfterSeconds;
     }
 
-    function setAnswer(bytes32 questionId, int256 answer, uint256 updatedAt) external onlyOwner {
-        answers[questionId] = AnswerData({answer: answer, updatedAt: updatedAt});
-        emit AnswerSet(questionId, answer, updatedAt);
+    function setBinaryMarketConfig(
+        bytes32 questionId,
+        address feed,
+        int256 threshold,
+        bool outcomeIfGreaterOrEqual
+    ) external onlyOwner {
+        require(feed != address(0), "ZERO_FEED");
+
+        configs[questionId] = BinaryMarketOracleConfig({
+            feed: feed,
+            threshold: threshold,
+            outcomeIfGreaterOrEqual: outcomeIfGreaterOrEqual,
+            isConfigured: true
+        });
+
+        emit OracleConfigSet(questionId, feed, threshold, outcomeIfGreaterOrEqual);
     }
 
     function latestAnswer(bytes32 questionId) external view returns (int256 answer, uint256 updatedAt) {
-        AnswerData memory data = answers[questionId];
-        require(data.updatedAt != 0, "MISSING_ANSWER");
-        require(block.timestamp - data.updatedAt <= STALE_AFTER, "STALE_ANSWER");
-        return (data.answer, data.updatedAt);
+        BinaryMarketOracleConfig memory config = configs[questionId];
+        require(config.isConfigured, "MISSING_CONFIG");
+
+        (, int256 latestPrice,, uint256 latestUpdatedAt,) = AggregatorV3Interface(config.feed).latestRoundData();
+        require(latestUpdatedAt != 0, "MISSING_ANSWER");
+        require(block.timestamp - latestUpdatedAt <= STALE_AFTER, "STALE_ANSWER");
+
+        bool outcome = latestPrice >= config.threshold;
+        if (!config.outcomeIfGreaterOrEqual) {
+            outcome = !outcome;
+        }
+
+        return (outcome ? int256(1) : int256(0), latestUpdatedAt);
+    }
+
+    function oracleConfig(
+        bytes32 questionId
+    ) external view returns (address feed, int256 threshold, bool outcomeIfGreaterOrEqual, bool isConfigured) {
+        BinaryMarketOracleConfig memory config = configs[questionId];
+        return (config.feed, config.threshold, config.outcomeIfGreaterOrEqual, config.isConfigured);
     }
 }
+

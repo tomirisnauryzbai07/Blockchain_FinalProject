@@ -6,6 +6,7 @@ import {OutcomeToken} from "../../src/OutcomeToken.sol";
 import {PredictionMarket} from "../../src/PredictionMarket.sol";
 import {PredictionMarketFactory} from "../../src/PredictionMarketFactory.sol";
 import {TreasuryVault} from "../../src/TreasuryVault.sol";
+import {MockV3Aggregator} from "../../src/mocks/MockV3Aggregator.sol";
 import {MarketTypes} from "../../src/libraries/MarketTypes.sol";
 
 contract Trader {
@@ -34,12 +35,16 @@ contract PredictionMarketFactoryTest {
     OracleAdapter internal oracle;
     TreasuryVault internal treasury;
     PredictionMarketFactory internal factory;
+    MockV3Aggregator internal btcFeed;
+    bytes32 internal constant QUESTION_ID = keccak256("btc-100k-2026");
 
     function setUp() public {
         outcomeToken = new OutcomeToken(address(this));
         oracle = new OracleAdapter(address(this), 30 days);
         treasury = new TreasuryVault(address(this));
         factory = new PredictionMarketFactory(address(this), address(treasury), address(outcomeToken));
+        btcFeed = new MockV3Aggregator(8, 110_000e8);
+        oracle.setBinaryMarketConfig(QUESTION_ID, address(btcFeed), 100_000e8, true);
     }
 
     function testCreateMarketTracksAddress() public {
@@ -93,7 +98,6 @@ contract PredictionMarketFactoryTest {
         uint256 yesShares = yesTrader.buy(market, market.OUTCOME_YES(), 1_500 ether);
         noTrader.buy(market, market.OUTCOME_NO(), 500 ether);
 
-        oracle.setAnswer(keccak256("btc-100k-2026"), 1, block.timestamp);
         market.beginResolution();
         market.resolve();
 
@@ -104,6 +108,15 @@ contract PredictionMarketFactoryTest {
         require(market.totalWinningSharesAtResolution() == yesShares, "snapshot mismatch");
         require(redeemOut > 0, "no redeem out");
         require(withdrawn == redeemOut, "wrong withdraw");
+    }
+
+    function testOracleAdapterReturnsZeroBelowThreshold() public {
+        btcFeed.updateAnswer(90_000e8);
+
+        (int256 answer, uint256 updatedAt) = oracle.latestAnswer(QUESTION_ID);
+
+        require(answer == 0, "expected no");
+        require(updatedAt == block.timestamp, "wrong timestamp");
     }
 
     function _createMarket() internal returns (PredictionMarket market) {
@@ -120,7 +133,7 @@ contract PredictionMarketFactoryTest {
                 feeBps: 30,
                 collateralToken: COLLATERAL,
                 oracleAdapter: address(oracle),
-                oracleQuestionId: keccak256("btc-100k-2026")
+                oracleQuestionId: QUESTION_ID
             });
     }
 }
