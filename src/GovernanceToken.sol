@@ -1,54 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-contract GovernanceToken {
-    string public constant NAME = "Forecast Governance Token";
-    string public constant SYMBOL = "FGT";
-    uint8 public constant DECIMALS = 18;
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {ERC20Permit} from "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {ERC20Votes} from "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import {Nonces} from "openzeppelin-contracts/contracts/utils/Nonces.sol";
 
-    uint256 public totalSupply;
-    address public owner;
-
-    mapping(address account => uint256 balance) public balanceOf;
-
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-
-    modifier onlyOwner() {
-        _onlyOwner();
-        _;
-    }
-
-    function _onlyOwner() internal view {
-        require(msg.sender == owner, "NOT_OWNER");
-    }
-
-    constructor(address initialOwner) {
-        owner = initialOwner;
-        emit OwnershipTransferred(address(0), initialOwner);
-    }
+contract GovernanceToken is ERC20, ERC20Permit, ERC20Votes, Ownable {
+    constructor(address initialOwner)
+        ERC20("Forecast Governance Token", "FGT")
+        ERC20Permit("Forecast Governance Token")
+        Ownable(initialOwner)
+    {}
 
     function mint(address to, uint256 amount) external onlyOwner {
-        totalSupply += amount;
-        balanceOf[to] += amount;
-        emit Transfer(address(0), to, amount);
+        _mint(to, amount);
     }
 
-    function transfer(address to, uint256 amount) external returns (bool) {
-        require(balanceOf[msg.sender] >= amount, "INSUFFICIENT_BALANCE");
-
-        unchecked {
-            balanceOf[msg.sender] -= amount;
-            balanceOf[to] += amount;
-        }
-
-        emit Transfer(msg.sender, to, amount);
-        return true;
+    function _update(address from, address to, uint256 amount) internal override(ERC20, ERC20Votes) {
+        super._update(from, to, amount);
     }
 
-    function transferOwnership(address newOwner) external onlyOwner {
-        require(newOwner != address(0), "ZERO_ADDRESS");
-        emit OwnershipTransferred(owner, newOwner);
-        owner = newOwner;
+    function nonces(address owner) public view override(ERC20Permit, Nonces) returns (uint256) {
+        return super.nonces(owner);
     }
 }
+
