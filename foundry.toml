@@ -15,9 +15,15 @@ line_length = 100
 tab_width = 4
 bracket_spacing = true
 
+[fuzz]
+runs = 256
+
+[invariant]
+runs = 64
+depth = 32
+
 [rpc_endpoints]
 arbitrum_sepolia = "${ARBITRUM_SEPOLIA_RPC_URL}"
 base_sepolia = "${BASE_SEPOLIA_RPC_URL}"
 optimism_sepolia = "${OPTIMISM_SEPOLIA_RPC_URL}"
 sepolia = "${SEPOLIA_RPC_URL}"
-
