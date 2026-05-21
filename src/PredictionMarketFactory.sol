@@ -11,9 +11,18 @@ contract PredictionMarketFactory {
 
     PredictionMarket[] internal markets;
     mapping(bytes32 salt => address market) public marketBySalt;
+    mapping(address market => MarketTypes.MarketMetadata metadata) internal marketMetadata;
 
-    event MarketCreated(address indexed market, string question, uint64 endTime);
-    event DeterministicMarketCreated(address indexed market, bytes32 indexed salt);
+    event MarketCreated(
+        address indexed market,
+        string question,
+        uint64 endTime,
+        uint256 feeBps,
+        address collateralToken,
+        address oracleAdapter,
+        bytes32 oracleQuestionId
+    );
+    event DeterministicMarketCreated(address indexed market, bytes32 indexed salt, string question);
 
     modifier onlyOwner() {
         _onlyOwner();
@@ -40,8 +49,17 @@ contract PredictionMarketFactory {
         PredictionMarket newMarket = new PredictionMarket(treasury, outcomeToken, config);
         markets.push(newMarket);
         market = address(newMarket);
+        _storeMetadata(market, config, false, bytes32(0));
 
-        emit MarketCreated(market, config.question, config.endTime);
+        emit MarketCreated(
+            market,
+            config.question,
+            config.endTime,
+            config.feeBps,
+            config.collateralToken,
+            config.oracleAdapter,
+            config.oracleQuestionId
+        );
     }
 
     function createMarketDeterministic(
@@ -55,8 +73,9 @@ contract PredictionMarketFactory {
 
         market = address(newMarket);
         marketBySalt[salt] = market;
+        _storeMetadata(market, config, true, salt);
 
-        emit DeterministicMarketCreated(market, salt);
+        emit DeterministicMarketCreated(market, salt, config.question);
     }
 
     function marketCount() external view returns (uint256) {
@@ -65,5 +84,28 @@ contract PredictionMarketFactory {
 
     function marketAt(uint256 index) external view returns (address) {
         return address(markets[index]);
+    }
+
+    function marketDetails(address market) external view returns (MarketTypes.MarketMetadata memory) {
+        return marketMetadata[market];
+    }
+
+    function _storeMetadata(
+        address market,
+        MarketTypes.MarketConfig calldata config,
+        bool deterministic,
+        bytes32 salt
+    ) internal {
+        marketMetadata[market] = MarketTypes.MarketMetadata({
+            question: config.question,
+            endTime: config.endTime,
+            resolveWindow: config.resolveWindow,
+            feeBps: config.feeBps,
+            collateralToken: config.collateralToken,
+            oracleAdapter: config.oracleAdapter,
+            oracleQuestionId: config.oracleQuestionId,
+            deterministic: deterministic,
+            deploymentSalt: salt
+        });
     }
 }

@@ -49,10 +49,14 @@ contract PredictionMarketFactoryTest {
 
     function testCreateMarketTracksAddress() public {
         PredictionMarket market = _createMarket();
+        MarketTypes.MarketMetadata memory details = factory.marketDetails(address(market));
 
         require(factory.marketCount() == 1, "bad count");
         require(factory.marketAt(0) == address(market), "bad market");
         require(market.FACTORY() == address(factory), "bad factory");
+        require(details.feeBps == 30, "bad fee bps");
+        require(details.oracleQuestionId == QUESTION_ID, "bad question id");
+        require(!details.deterministic, "should not be deterministic");
     }
 
     function testCreateMarketDeterministicStoresSalt() public {
@@ -60,18 +64,24 @@ contract PredictionMarketFactoryTest {
         bytes32 salt = keccak256("market-1");
 
         address market = factory.createMarketDeterministic(config, salt);
+        MarketTypes.MarketMetadata memory details = factory.marketDetails(market);
 
         require(factory.marketBySalt(salt) == market, "salt missing");
         require(factory.marketCount() == 1, "count mismatch");
+        require(details.deterministic, "missing deterministic flag");
+        require(details.deploymentSalt == salt, "missing salt");
     }
 
     function testBuyMintsOutcomeShares() public {
         PredictionMarket market = _createMarket();
         Trader trader = new Trader();
+        (uint256 previewShares, uint256 fee) = market.quoteBuy(market.OUTCOME_YES(), 1_000 ether);
 
         uint256 shares = trader.buy(market, market.OUTCOME_YES(), 1_000 ether);
 
         require(shares > 0, "no shares");
+        require(shares == previewShares, "quote mismatch");
+        require(fee == 3 ether, "bad fee");
         require(market.collateralPool() == 1_000 ether, "pool mismatch");
         require(outcomeToken.balanceOf(market.OUTCOME_YES(), address(trader)) == shares, "balance mismatch");
         require(market.outcomeSupply(market.OUTCOME_YES()) == shares, "supply mismatch");
@@ -82,9 +92,11 @@ contract PredictionMarketFactoryTest {
         Trader trader = new Trader();
 
         uint256 bought = trader.buy(market, market.OUTCOME_NO(), 2_000 ether);
+        (uint256 quotedOut,) = market.quoteSell(market.OUTCOME_NO(), bought / 2);
         uint256 soldOut = trader.sell(market, market.OUTCOME_NO(), bought / 2);
         uint256 withdrawn = trader.withdraw(market);
 
+        require(soldOut == quotedOut, "sell quote mismatch");
         require(soldOut > 0, "no collateral out");
         require(withdrawn == soldOut, "withdraw mismatch");
         require(market.pendingCollateral(address(trader)) == 0, "pending not cleared");
@@ -117,6 +129,17 @@ contract PredictionMarketFactoryTest {
 
         require(answer == 0, "expected no");
         require(updatedAt == block.timestamp, "wrong timestamp");
+    }
+
+    function testSnapshotExposesAccruedFees() public {
+        PredictionMarket market = _createMarket();
+        Trader trader = new Trader();
+        trader.buy(market, market.OUTCOME_YES(), 1_000 ether);
+
+        MarketTypes.MarketSnapshot memory data = market.snapshot();
+
+        require(data.accruedFees == 3 ether, "bad accrued fees");
+        require(data.collateralPool == 1_000 ether, "bad snapshot pool");
     }
 
     function _createMarket() internal returns (PredictionMarket market) {

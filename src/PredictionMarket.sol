@@ -156,8 +156,22 @@ contract PredictionMarket {
                 yesShares: yesReserve,
                 noShares: noReserve,
                 collateralPool: collateralPool,
+                accruedFees: accruedFees,
                 winningOutcome: winningOutcome
             });
+    }
+
+    function quoteBuy(uint8 outcome, uint256 collateralIn) external view returns (uint256 sharesOut, uint256 fee) {
+        if (outcome > OUTCOME_YES) revert InvalidOutcome();
+        fee = _feeFor(collateralIn);
+        sharesOut = _quoteShares(outcome, collateralIn - fee);
+    }
+
+    function quoteSell(uint8 outcome, uint256 sharesIn) external view returns (uint256 collateralOut, uint256 fee) {
+        if (outcome > OUTCOME_YES) revert InvalidOutcome();
+        collateralOut = _quoteCollateralOut(outcome, sharesIn);
+        fee = _feeFor(collateralOut);
+        collateralOut -= fee;
     }
 
     function _quoteShares(uint8 outcome, uint256 collateralIn) internal view returns (uint256) {

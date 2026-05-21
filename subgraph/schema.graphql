@@ -4,6 +4,12 @@ type Market @entity {
   marketAddress: Bytes!
   question: String!
   endTime: BigInt!
+  resolveWindow: BigInt!
+  feeBps: BigInt!
+  collateralToken: Bytes!
+  oracleAdapter: Bytes!
+  oracleQuestionId: Bytes!
+  accruedFees: BigInt!
   resolved: Boolean!
   winningOutcome: Int
   trades: [Trade!]! @derivedFrom(field: "market")
