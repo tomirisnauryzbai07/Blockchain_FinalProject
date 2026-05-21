@@ -47,7 +47,8 @@ Represents a single market with two outcomes.
 ### 6. Vault / Treasury
 
 - accumulates protocol fees
-- later expanded into ERC-4626-compatible accounting for LP fees / yield
+- ERC-4626 fee vault used for tokenized fee/yield accounting
+- direct asset donations increase assets-per-share and model protocol yield accrual
 
 ## Mandatory Requirement Mapping
 
@@ -65,4 +66,3 @@ Represents a single market with two outcomes.
 - solo-submission policy may require instructor exception
 - governance + vault + subgraph integration is the largest scope risk
 - 80-test minimum and 90% coverage need to be planned from the start
-

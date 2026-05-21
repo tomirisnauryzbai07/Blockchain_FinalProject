@@ -2,7 +2,9 @@
 pragma solidity ^0.8.24;
 
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {TimelockController} from "openzeppelin-contracts/contracts/governance/TimelockController.sol";
+import {FeeVault4626} from "../src/FeeVault4626.sol";
 import {ForecastGovernor} from "../src/ForecastGovernor.sol";
 import {GovernanceToken} from "../src/GovernanceToken.sol";
 import {OracleAdapter} from "../src/OracleAdapter.sol";
@@ -68,5 +70,9 @@ contract DeployScaffold {
 
         bytes memory initData = abi.encodeCall(TreasuryVaultUpgradeableV1.initialize, (owner));
         proxy = new ERC1967Proxy(address(implementationV1), initData);
+    }
+
+    function deployFeeVault(ERC20 assetToken, address owner) external returns (FeeVault4626 vault) {
+        vault = new FeeVault4626(assetToken, owner);
     }
 }
