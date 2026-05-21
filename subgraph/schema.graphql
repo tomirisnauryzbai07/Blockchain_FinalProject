@@ -1,0 +1,42 @@
+type Market @entity {
+  id: ID!
+  creator: Bytes!
+  marketAddress: Bytes!
+  question: String!
+  endTime: BigInt!
+  resolved: Boolean!
+  winningOutcome: Int
+  trades: [Trade!]! @derivedFrom(field: "market")
+}
+
+type Trade @entity {
+  id: ID!
+  market: Market!
+  trader: Bytes!
+  outcome: Int!
+  collateralIn: BigInt!
+  sharesOut: BigInt!
+  timestamp: BigInt!
+}
+
+type Resolution @entity {
+  id: ID!
+  market: Market!
+  resolver: Bytes!
+  winningOutcome: Int!
+  timestamp: BigInt!
+}
+
+type VaultSnapshot @entity {
+  id: ID!
+  totalAssets: BigInt!
+  totalShares: BigInt!
+  timestamp: BigInt!
+}
+
+type ProposalSnapshot @entity {
+  id: ID!
+  proposalId: BigInt!
+  state: String!
+  eta: BigInt
+}

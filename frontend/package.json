@@ -1,0 +1,11 @@
+{
+  "name": "finaltomi-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Frontend scaffold for the prediction market dApp",
+  "scripts": {
+    "dev": "echo \"frontend scaffold pending dependency install\"",
+    "build": "echo \"frontend scaffold pending dependency install\""
+  }
+}
+
